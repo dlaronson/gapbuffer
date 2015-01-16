@@ -141,7 +141,8 @@ impl<T> GapBuffer<T> {
     pub fn iter(&self) -> Items<T> {
         Items {
             buff: self,
-            idx: 0,
+            idx_front: 0,
+            idx_back: self.len()-1,
         }
     }
 
@@ -296,7 +297,8 @@ impl<T> IndexMut<usize> for GapBuffer<T> {
 #[derive(Clone)]
 pub struct Items<'a, T: 'a> {
     buff: &'a GapBuffer<T>,
-    idx: usize,
+    idx_front: usize,
+    idx_back: usize,
 }
 
 impl<'a, T> Iterator for Items<'a, T> {
@@ -304,9 +306,9 @@ impl<'a, T> Iterator for Items<'a, T> {
 
     #[inline]
     fn next(&mut self) -> Option<&'a T> {
-        let next = self.buff.get(self.idx);
+        let next = self.buff.get(self.idx_front);
         if next.is_some() {
-            self.idx += 1;
+            self.idx_front += 1;
         }
         next
     }
@@ -321,9 +323,9 @@ impl<'a, T> Iterator for Items<'a, T> {
 impl<'a, T> DoubleEndedIterator for Items<'a, T> {
     #[inline]
     fn next_back(&mut self) -> Option<&'a T> {
-        let next = self.buff.get((self.buff.len()-1) - self.idx);
+        let next = self.buff.get(self.idx_back);
         if next.is_some() {
-            self.idx += 1;
+            self.idx_back -= 1;
         }
         next
     }
