@@ -145,6 +145,14 @@ impl<T> GapBuffer<T> {
         }
     }
 
+    pub fn walk_from(&self, idx: usize) -> ItemWalker<T> {
+        ItemWalker {
+            buff: self,
+            idx: idx,
+            reverse: false,
+        }
+    }
+
     ///Get the length of the GapBuffer.
     pub fn len(&self) -> usize { self.buf.len() }
 
@@ -318,6 +326,40 @@ impl<'a, T> Iterator for Items<'a, T> {
     }
 }
 
+// Reversible iterator for walking forwards/backwards from particular points in the buffer
+#[derive(Clone)]
+pub struct ItemWalker<'a, T: 'a> {
+    buff: &'a GapBuffer<T>,
+    idx: usize,
+    reverse: bool,
+}
+
+impl<'a, T> Iterator for ItemWalker<'a, T> {
+    type Item = &'a T;
+
+    #[inline]
+    fn next(&mut self) -> Option<&'a T> {
+        let next = self.buff.get(self.idx);
+        if next.is_some() {
+            self.idx += if self.reverse { -1 } else { 1 };
+        }
+        next
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.buff.len();
+        (len, Some(len))
+    }
+}
+
+impl<'a, T> ItemWalker<'a, T> {
+    fn reverse(mut self) -> ItemWalker<'a, T> {
+        self.reverse = !self.reverse;
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -360,6 +402,46 @@ mod tests {
 
         let mut iterator = test.iter();
         let mut index = range(0,100);
+        loop {
+            match (iterator.next(), index.next()) {
+                (Some(&x), Some(y)) => {
+                    assert!(x == y, "Element at index {} is {}", y, x);
+                }
+                (None, _) | (_, None) => { break }
+            }
+        }
+    }
+
+    #[test]
+    fn test_walk() {
+        let mut test: GapBuffer<usize> = GapBuffer::new();
+
+        for x in range(0, 100) {
+            test.insert(x, x);
+        }
+
+        let mut iterator = test.walk_from(50);
+        let mut index = range(50, 100);
+        loop {
+            match (iterator.next(), index.next()) {
+                (Some(&x), Some(y)) => {
+                    assert!(x == y, "Element at index {} is {}", y, x);
+                }
+                (None, _) | (_, None) => { break }
+            }
+        }
+    }
+
+    #[test]
+    fn test_walk_backward() {
+        let mut test: GapBuffer<usize> = GapBuffer::new();
+
+        for x in range(0, 100) {
+            test.insert(x, x);
+        }
+
+        let mut iterator = test.walk_from(50).reverse();
+        let mut index = range(0, 51).rev();
         loop {
             match (iterator.next(), index.next()) {
                 (Some(&x), Some(y)) => {
