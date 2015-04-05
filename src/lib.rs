@@ -139,7 +139,8 @@ impl<T> GapBuffer<T> {
     pub fn iter(&self) -> Items<T> {
         Items {
             buff: self,
-            idx: 0,
+            idx_front: 0,
+            idx_back: self.len()-1,
         }
     }
 
@@ -292,7 +293,8 @@ impl<T> IndexMut<usize> for GapBuffer<T> {
 #[derive(Clone)]
 pub struct Items<'a, T: 'a> {
     buff: &'a GapBuffer<T>,
-    idx: usize,
+    idx_front: usize,
+    idx_back: usize,
 }
 
 impl<'a, T> Iterator for Items<'a, T> {
@@ -300,9 +302,9 @@ impl<'a, T> Iterator for Items<'a, T> {
 
     #[inline]
     fn next(&mut self) -> Option<&'a T> {
-        let next = self.buff.get(self.idx);
+        let next = self.buff.get(self.idx_front);
         if next.is_some() {
-            self.idx += 1;
+            self.idx_front += 1;
         }
         next
     }
@@ -311,6 +313,17 @@ impl<'a, T> Iterator for Items<'a, T> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         let len = self.buff.len();
         (len, Some(len))
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for Items<'a, T> {
+    #[inline]
+    fn next_back(&mut self) -> Option<&'a T> {
+        let next = self.buff.get(self.idx_back);
+        if next.is_some() {
+            self.idx_back -= 1;
+        }
+        next
     }
 }
 
@@ -356,6 +369,27 @@ mod tests {
 
         let mut iterator = test.iter();
         let mut index = range(0,100);
+        loop {
+            match (iterator.next(), index.next()) {
+                (Some(&x), Some(y)) => {
+                    assert!(x == y, "Element at index {} is {}", y, x);
+                }
+                (None, _) | (_, None) => { break }
+            }
+        }
+    }
+
+    #[test]
+    fn test_iter_rev() {
+    //Test reverse iteration.
+        let mut test: GapBuffer<usize> = GapBuffer::new();
+
+        for x in range(0, 100) {
+            test.insert(x,x);
+        }
+
+        let mut iterator = test.iter().rev();
+        let mut index = range(0,100).rev();
         loop {
             match (iterator.next(), index.next()) {
                 (Some(&x), Some(y)) => {
